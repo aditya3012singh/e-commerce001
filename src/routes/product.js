@@ -73,9 +73,10 @@ router.post("/postproduct", async (req,res)=>{
     }
 })
 
-router.get("/getproduct/bulk", async(req,res)=>{
+router.get("/product/bulk", async(req,res)=>{
     const products=await prisma.product.findMany({
         select:{
+            id:true,
             title:true,
             description:true,
             price:true,
@@ -89,9 +90,87 @@ router.get("/getproduct/bulk", async(req,res)=>{
     })
 })
 
-router.post("/cart", async (req,res)=>{
+router.get("/product/:id", async (req,res)=>{//get a product by id
 
 })
+
+
+
+router.put("/product/:id", async (req,res)=>{//update a product by id
+
+})
+
+
+router.delete("/product/:id", async (req,res)=>{//delete a product by id
+
+})
+
+
+router.post("/cart", async (req,res)=>{
+    try{
+        const userId=req.userId
+        const{productId, quantity}=req.body
+
+        if(!productId || !quantity || quantity<1){
+            return res.status(400).json({message:"invalid input"})
+        }
+    
+
+    const existingCartItem= await prisma.cartItem.findFirst({
+        where:{
+            userId,
+            productId
+        }
+    })
+    if(existingCartItem){
+        const updateItem=await prisma.cartItem.update({
+            where:{
+                id:existingCartItem.id
+            },
+            data:{
+                quantity: existingCartItem.quantity + quantity
+            }
+        })
+        return res.json({cartItem:updateItem})
+    }
+    const newCartItem=await prisma.cartItem.create({
+        data:{
+            userId,
+            productId,
+            quantity
+        }
+    })
+    res.status(201).json({cartItem:newCartItem})
+    }catch(error){
+        console.error("Add to cart failed: ",error)
+        res.status(500).json({message:"something went wrong"})
+    }
+})
+
+router.get("/cart", async (req,res)=>{
+    const cartItems= await prisma.cartItem.findMany({
+        select:{
+            id:true,
+            userId :true,
+            productId:true,
+            quantity:true
+        }
+    })
+    return res.json({
+        cartItems
+    })
+})
+
+router.put("/cart/:id", async (req,res)=>{//to update the quantity
+
+})
+
+
+
+router.delete("/cart/:id", async (req,res)=>{//to remove an item from the cart
+
+})
+
 
 
 export default router
