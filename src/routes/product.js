@@ -6,6 +6,7 @@ import { productSchema } from "../middlewares/ValidateUser.js";
 
 
 
+
 dotenv.config()
 const router = express.Router();
 const prisma = new PrismaClient()
@@ -17,7 +18,7 @@ const prisma = new PrismaClient()
  * @param {import("express").Response} res
  * @param {import("express").NextFunction} next
  */
-const authMiddleware = (req,res, next) => {
+const authMiddleware = async(req,res, next) => {
     console.log("hello from auth middlewRE")
     const authHeader=req.headers["authorization"]
     console.log(authHeader)
@@ -26,19 +27,79 @@ const authMiddleware = (req,res, next) => {
     }
     try{
         const decoded= jwt.verify(authHeader, process.env.JWT_SECRET || "secret")
-        console.log("Decoded token:", decoded);
-        console.log(decoded.id);
         req.userId=decoded.id;
-        console.log("user",req.userId)
-        console.log("authentiaction complete")
+
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        req.user=user
         next()
     }catch(e){
         console.error("JWT verification error:", e);
         return res.status(403).json({message:"invalid token"})
     }
 }
+
+const requireAdmin = (req, res, next) => {
+    if (req.user.role != "ADMIN") {
+        return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+    next();
+};
+
+
+router.get("/product/:id", async (req,res)=>{//get a product by id
+    const id=req.params.id
+    try{
+        const productItem= await prisma.product.findUnique({
+            where:{id}
+        })
+        if(!productItem){
+            return res.status(404).json({message:"Product item not found"})
+        }
+        return res.status(201).json({
+            id:productItem.id,
+            title:productItem.title,
+            description:productItem.description,
+            price:productItem.price,
+            imageUrl:productItem.imageUrl,
+            stock:productItem.stock,
+            Category:productItem.Category,
+            createdAt:productItem.createdAt
+        })
+    }catch(error){
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+})
+
+router.get("/probulk", async(req,res)=>{
+    const products=await prisma.product.findMany({
+        select:{
+            id:true,
+            title:true,
+            description:true,
+            price:true,
+            imageUrl:true,
+            stock:true,
+            Category:true
+        }
+    })
+    return res.json({
+        products
+    })
+})
+
+
 router.use(authMiddleware)
-router.post("/postproduct", async (req,res)=>{
+
+
+router.post("/postproduct",requireAdmin, async (req,res)=>{
     try{
         const parsed=productSchema.safeParse(req.body)
         console.log(parsed)
@@ -73,36 +134,62 @@ router.post("/postproduct", async (req,res)=>{
     }
 })
 
-router.get("/product/bulk", async(req,res)=>{
-    const products=await prisma.product.findMany({
-        select:{
-            id:true,
-            title:true,
-            description:true,
-            price:true,
-            imageUrl:true,
-            stock:true,
-            Category:true
+
+
+router.put("/product/:id", requireAdmin, async (req, res) => {
+    const id = req.params.id;
+
+    try {
+        const parsed = productSchema.partial().safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
         }
-    })
-    return res.json({
-        products
-    })
-})
 
-router.get("/product/:id", async (req,res)=>{//get a product by id
+        const dataToUpdate = parsed.data;
 
-})
+        const existingProduct = await prisma.product.findUnique({
+            where: { id }
+        });
+
+        if (!existingProduct) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        const updatedProduct = await prisma.product.update({
+            where: { id },
+            data: dataToUpdate
+        });
+
+        return res.status(200).json({
+            message: "Product updated successfully",
+            product: updatedProduct
+        });
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({ message: "Internal server error" })
+    }
+});
 
 
 
-router.put("/product/:id", async (req,res)=>{//update a product by id
-
-})
-
-
-router.delete("/product/:id", async (req,res)=>{//delete a product by id
-
+router.delete("/product/:id",requireAdmin, async (req,res)=>{//delete a product by id
+    const id=req.params.id
+    try{
+        const existingProductItem=await prisma.product.findUnique({
+            where:{id}
+        })
+        if(!existingProductItem){
+            return res.status(404).json({message:"Product not found"})
+        }
+        const deletedProductItem=await prisma.product.delete({
+            where:{id}
+        })
+        return res.status(201).json({message:"Product item deleted",deletedProductItem})
+    }catch(error){
+        console.error(error)
+        return res.status(500).json({message:"Server error"})
+    }
 })
 
 

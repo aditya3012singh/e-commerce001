@@ -3,7 +3,8 @@ import { z } from "zod";
 export const signupSchema=z.object({
     email:z.string().email(),
     name:z.string().min(5,"Name must be atleast 5 characters!!"),
-    password:z.string().min(6,"PAssword must be atleast 6 characters!!")
+    password:z.string().min(6,"PAssword must be atleast 6 characters!!"),
+    role:z.string("ADMIN" || "CUSTOMER")
 })
 
 export const signinSchema=z.object({

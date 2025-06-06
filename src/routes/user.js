@@ -22,7 +22,7 @@ router.post('/signup', async (req, res) => {
       return res.status(403).json({ errors: parsed.error.errors });
     }
     console.log(parsed.data)
-    const { email, name, password } = parsed.data;
+    const { email, name, password , role} = parsed.data;
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
@@ -37,12 +37,14 @@ router.post('/signup', async (req, res) => {
       data: {
         email,
         name,
-        password: hashedPassword
+        password: hashedPassword,
+        role: role || "CUSTOMER"
       }
     });
-
+    
+    console.log(user.role)
     const token = jwt.sign(
-      { id: user.id },
+      { id: user.id , role: user.role},
       process.env.JWT_SECRET || "secret",
       { expiresIn: "1h" }
     );
@@ -52,7 +54,8 @@ router.post('/signup', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        role:user.role
       }
     });
   } catch (e) {
