@@ -99,7 +99,7 @@ router.post('/signin', async (req, res)=> {
       { expiresIn: "1h" }
     );
     const auth=jwt.verify(token,process.env.JWT_SECRET|| "secret") 
-    console.log("auth", auth)
+    console.log("auth", auth) 
     console.log(auth.id)
     req.id=auth.id;
     console.log(req.id);
