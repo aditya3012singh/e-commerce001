@@ -120,4 +120,50 @@ router.put("/order/:id/cancel", authMiddleware, async (req,res)=>{
     }
 })
 
+router.get("/order/:id", async (req, res) => {
+  const orderId = req.params.id;
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+        user: true, // optional, if you want user info
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Format items for cleaner response
+    const items = order.orderItems.map((item) => ({
+      product: {
+        id: item.product.id,
+        title: item.product.title,
+        price: item.product.price,
+        imageUrl: item.product.imageUrl,
+      },
+      quantity: item.quantity,
+      subtotal: item.product.price * item.quantity,
+    }));
+
+    return res.status(200).json({
+      id: order.id,
+      status: order.status,
+      total: order.total,
+      createdAt: order.createdAt,
+      items,
+      // optionally user info here if needed
+    });
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router
